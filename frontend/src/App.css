@@ -34,6 +34,47 @@
   gap: 10px;
 }
 
+.authButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.userChip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+}
+
+.userChipName {
+  font-size: 13px;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.userChipLogout {
+  font-size: 13px;
+  border: 0;
+  background: transparent;
+  color: color-mix(in oklab, var(--text) 92%, transparent);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.userChipLogout:hover {
+  background: color-mix(in oklab, var(--bg) 80%, var(--border));
+  color: var(--text-h);
+}
+
+.mobileOnly {
+  display: none;
+}
+
 .topbarDay {
   font-size: 14px;
   color: var(--text);
@@ -81,6 +122,9 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: calc(100svh - 64px - 14px - 14px - 24px);
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .dayItem {
@@ -111,6 +155,19 @@
 .dayLabel {
   font-size: 14px;
   color: var(--text-h);
+}
+
+.dayMini {
+  display: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  color: var(--text-h);
+  font-size: 12px;
+  place-items: center;
+  flex: 0 0 auto;
 }
 
 .centerHeader {
@@ -174,6 +231,7 @@
   color: var(--text-h);
   font-size: 22px;
   line-height: 1;
+  transform: translateY(-0.5px);
 }
 
 .mealCard {
@@ -290,6 +348,135 @@
   color: var(--text-h);
   font-size: 20px;
   line-height: 1;
+  transform: translateY(-0.5px);
+}
+
+.mealCard {
+  position: relative;
+}
+
+.mealCard {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.mealCard.dragging {
+  opacity: 0.55;
+  transform: scale(0.98);
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+  box-shadow: var(--shadow);
+}
+
+.dropIndicator {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: color-mix(in oklab, var(--accent) 70%, var(--text-h));
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-bg) 70%, transparent);
+}
+
+.dropIndicator.before {
+  top: -1px;
+}
+
+.dropIndicator.after {
+  bottom: -1px;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.modalCard {
+  width: min(520px, 100%);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  padding: 12px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.modalTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tabButton {
+  flex: 1 1 0;
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  cursor: pointer;
+  color: var(--text-h);
+}
+
+.tabButton.active {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+  background: var(--accent-bg);
+}
+
+.formGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  color: color-mix(in oklab, var(--text) 92%, transparent);
+}
+
+.formError {
+  font-size: 13px;
+  color: color-mix(in oklab, #ff3b3b 75%, var(--text-h));
+  border: 1px solid color-mix(in oklab, #ff3b3b 35%, var(--border));
+  background: color-mix(in oklab, #ff3b3b 10%, var(--bg));
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.primaryButton {
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--accent) 55%, var(--border));
+  background: color-mix(in oklab, var(--accent) 30%, var(--bg));
+  cursor: pointer;
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.primaryButton:hover {
+  box-shadow: var(--shadow);
 }
 
 .productList {
@@ -453,19 +640,40 @@
 @media (max-width: 820px) {
   .app {
     grid-template-columns: 1fr;
-    grid-template-rows: 64px auto 1fr;
+    grid-template-rows: 64px 1fr;
     grid-template-areas:
       "top"
-      "left"
       "center";
   }
   .left {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
+    position: fixed;
+    top: 64px;
+    bottom: 0;
+    left: 0;
+    width: min(320px, 88vw);
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+    z-index: 20;
   }
+
+  .left.openMobile {
+    transform: translateX(0);
+  }
+
+  .mobileOnly {
+    display: inline-flex;
+  }
+
   .center {
     padding: 14px;
   }
+
+  .dayMini {
+    display: grid;
+  }
+
   .productRow {
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;

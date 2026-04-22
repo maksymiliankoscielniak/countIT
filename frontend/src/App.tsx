@@ -1,6 +1,6 @@
 import './App.css'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type MacroKey = 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber'
 
@@ -20,6 +20,17 @@ type Meal = {
 
 type DayState = {
   meals: Meal[]
+}
+
+type AuthUser = {
+  id: string
+  email: string
+  displayName: string
+  password: string
+}
+
+type Session = {
+  userId: string
 }
 
 const MACRO_LABELS: Record<MacroKey, string> = {
@@ -61,9 +72,20 @@ function toISODateKey(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
+function addDays(dateKey: string, deltaDays: number) {
+  const d = new Date(`${dateKey}T00:00:00`)
+  d.setDate(d.getDate() + deltaDays)
+  return toISODateKey(d)
+}
+
 function formatDayLabel(dateKey: string) {
   const d = new Date(`${dateKey}T00:00:00`)
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function weekdayLetter(dateKey: string) {
+  const d = new Date(`${dateKey}T00:00:00`)
+  return d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1).toUpperCase()
 }
 
 function uid(prefix = 'id') {
@@ -93,24 +115,62 @@ export default function App() {
   const [selectedDayKey, setSelectedDayKey] = useState(todayKey)
   const [dayData, setDayData] = useState<Record<string, DayState>>({ [todayKey]: { meals: [] } })
   const dragMealIdRef = useRef<string | null>(null)
+  const [dragMealId, setDragMealId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ mealId: string; position: 'before' | 'after' } | null>(null)
+  const dayListRef = useRef<HTMLDivElement | null>(null)
+
+  const [daysRange, setDaysRange] = useState<{ start: string; end: string }>(() => ({
+    start: addDays(todayKey, -60),
+    end: addDays(todayKey, 60),
+  }))
+
+  const [isDaysOpenMobile, setIsDaysOpenMobile] = useState(false)
+
+  const [isAuthOpen, setIsAuthOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authDisplayName, setAuthDisplayName] = useState('')
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [users, setUsers] = useState<AuthUser[]>(() => {
+    try {
+      const raw = localStorage.getItem('countit_users')
+      if (!raw) return []
+      const parsed = JSON.parse(raw) as AuthUser[]
+      if (!Array.isArray(parsed)) return []
+      return parsed
+    } catch {
+      return []
+    }
+  })
+  const [session, setSession] = useState<Session | null>(() => {
+    try {
+      const raw = localStorage.getItem('countit_session')
+      if (!raw) return null
+      return JSON.parse(raw) as Session
+    } catch {
+      return null
+    }
+  })
+
+  useEffect(() => {
+    localStorage.setItem('countit_users', JSON.stringify(users))
+  }, [users])
+
+  useEffect(() => {
+    if (session) localStorage.setItem('countit_session', JSON.stringify(session))
+    else localStorage.removeItem('countit_session')
+  }, [session])
 
   const days = useMemo(() => {
     const out: string[] = []
-    const now = new Date()
-    // show ~2 weeks around today
-    for (let i = 10; i >= 1; i--) {
-      const d = new Date(now)
-      d.setDate(now.getDate() - i)
-      out.push(toISODateKey(d))
-    }
-    out.push(toISODateKey(now))
-    for (let i = 1; i <= 4; i++) {
-      const d = new Date(now)
-      d.setDate(now.getDate() + i)
-      out.push(toISODateKey(d))
+    let cur = daysRange.start
+    while (cur <= daysRange.end) {
+      out.push(cur)
+      cur = addDays(cur, 1)
     }
     return out
-  }, [])
+  }, [daysRange])
 
   const currentMeals = useMemo(() => dayData[selectedDayKey]?.meals ?? [], [dayData, selectedDayKey])
 
@@ -198,18 +258,124 @@ export default function App() {
     setMeals(next)
   }
 
+  function reorderMealsAt(fromId: string, targetId: string, position: 'before' | 'after') {
+    if (fromId === targetId) return
+    const fromIdx = currentMeals.findIndex((m) => m.id === fromId)
+    const targetIdx = currentMeals.findIndex((m) => m.id === targetId)
+    if (fromIdx === -1 || targetIdx === -1) return
+    const next = [...currentMeals]
+    const [item] = next.splice(fromIdx, 1)
+    let insertAt = targetIdx
+    if (position === 'after') insertAt = targetIdx + 1
+    if (fromIdx < insertAt) insertAt -= 1
+    insertAt = clamp(insertAt, 0, next.length)
+    next.splice(insertAt, 0, item)
+    setMeals(next)
+  }
+
+  const currentUser = useMemo(() => {
+    if (!session) return null
+    return users.find((u) => u.id === session.userId) ?? null
+  }, [session, users])
+
+  function openAuth(mode: 'login' | 'signup') {
+    setAuthMode(mode)
+    setAuthError(null)
+    setAuthEmail('')
+    setAuthPassword('')
+    setAuthDisplayName('')
+    setIsAuthOpen(true)
+  }
+
+  function logout() {
+    setSession(null)
+  }
+
+  function submitAuth() {
+    setAuthError(null)
+    const email = authEmail.trim().toLowerCase()
+    const password = authPassword
+    const displayName = authDisplayName.trim()
+
+    if (!email.includes('@')) {
+      setAuthError('Enter a valid email.')
+      return
+    }
+    if (password.length < 4) {
+      setAuthError('Password must be at least 4 characters (temporary frontend-only).')
+      return
+    }
+
+    if (authMode === 'signup') {
+      if (displayName.length < 2) {
+        setAuthError('Display name must be at least 2 characters.')
+        return
+      }
+      const exists = users.some((u) => u.email === email)
+      if (exists) {
+        setAuthError('Account already exists. Try logging in.')
+        return
+      }
+      const user: AuthUser = { id: uid('user'), email, password, displayName }
+      setUsers((prev) => [...prev, user])
+      setSession({ userId: user.id })
+      setIsAuthOpen(false)
+      return
+    }
+
+    const user = users.find((u) => u.email === email && u.password === password)
+    if (!user) {
+      setAuthError('Wrong email or password.')
+      return
+    }
+    setSession({ userId: user.id })
+    setIsAuthOpen(false)
+  }
+
+  function onDaysScroll() {
+    const el = dayListRef.current
+    if (!el) return
+    const nearTop = el.scrollTop < 120
+    const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 120
+    if (nearTop) {
+      setDaysRange((r) => ({ ...r, start: addDays(r.start, -90) }))
+    } else if (nearBottom) {
+      setDaysRange((r) => ({ ...r, end: addDays(r.end, 90) }))
+    }
+  }
+
   return (
     <div className="app">
       <header className="topbar">
         <div className="brand">countIT</div>
         <div className="topbarMeta">
+          <button className="ghostButton mobileOnly" type="button" onClick={() => setIsDaysOpenMobile((v) => !v)}>
+            Days
+          </button>
           <div className="topbarDay">{selectedDayKey === todayKey ? 'Today' : formatDayLabel(selectedDayKey)}</div>
+          {currentUser ? (
+            <div className="userChip">
+              <span className="userChipName">{currentUser.displayName}</span>
+              <button className="userChipLogout" type="button" onClick={logout}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="authButtons">
+              <button className="ghostButton" type="button" onClick={() => openAuth('login')}>
+                Log in
+              </button>
+              <button className="ghostButton" type="button" onClick={() => openAuth('signup')}>
+                Sign up
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
-      <aside className="left">
+      <aside className={`left ${isDaysOpenMobile ? 'openMobile' : ''}`}>
         <div className="panelTitle">Days</div>
-        <div className="dayList" role="listbox" aria-label="Days">
+        <div className="dayList" role="listbox" aria-label="Days" ref={dayListRef} onScroll={onDaysScroll}>
           {days.map((key) => {
             const isActive = key === selectedDayKey
             const label = key === todayKey ? `Today · ${formatDayLabel(key)}` : formatDayLabel(key)
@@ -220,11 +386,15 @@ export default function App() {
                 onClick={() => {
                   ensureDay(key)
                   setSelectedDayKey(key)
+                  setIsDaysOpenMobile(false)
                 }}
                 role="option"
                 aria-selected={isActive}
               >
                 <span className="dayLabel">{label}</span>
+                <span className="dayMini" aria-hidden="true">
+                  {weekdayLetter(key)}
+                </span>
               </button>
             )
           })}
@@ -261,18 +431,38 @@ export default function App() {
             return (
               <section
                 key={meal.id}
-                className="mealCard"
+                className={`mealCard ${dragMealId === meal.id ? 'dragging' : ''}`}
                 draggable
                 onDragStart={() => {
                   dragMealIdRef.current = meal.id
+                  setDragMealId(meal.id)
+                }}
+                onDragEnd={() => {
+                  dragMealIdRef.current = null
+                  setDragMealId(null)
+                  setDropTarget(null)
                 }}
                 onDragOver={(e) => e.preventDefault()}
+                onDragEnter={(e) => {
+                  const from = dragMealIdRef.current
+                  if (!from || from === meal.id) return
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  const y = e.clientY - rect.top
+                  const position = y < rect.height / 2 ? 'before' : 'after'
+                  setDropTarget({ mealId: meal.id, position })
+                }}
                 onDrop={() => {
                   const from = dragMealIdRef.current
                   dragMealIdRef.current = null
-                  if (from) reorderMeals(from, meal.id)
+                  if (from && dropTarget?.mealId === meal.id) reorderMealsAt(from, meal.id, dropTarget.position)
+                  else if (from) reorderMeals(from, meal.id)
+                  setDragMealId(null)
+                  setDropTarget(null)
                 }}
               >
+                {dropTarget?.mealId === meal.id ? (
+                  <div className={`dropIndicator ${dropTarget.position}`} aria-hidden="true" />
+                ) : null}
                 <div className="mealHeader">
                   <div className="mealTitle">
                     <span className="dragHint" title="Drag to reorder" aria-hidden="true">
@@ -402,6 +592,85 @@ export default function App() {
           })}
         </div>
       </aside>
+
+      {isAuthOpen ? (
+        <div
+          className="modalOverlay"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setIsAuthOpen(false)
+          }}
+        >
+          <div className="modalCard">
+            <div className="modalHeader">
+              <div className="modalTitle">{authMode === 'login' ? 'Log in' : 'Sign up'}</div>
+              <button className="iconButton danger" type="button" onClick={() => setIsAuthOpen(false)} title="Close">
+                ×
+              </button>
+            </div>
+
+            <div className="modalTabs">
+              <button
+                type="button"
+                className={`tabButton ${authMode === 'login' ? 'active' : ''}`}
+                onClick={() => setAuthMode('login')}
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                className={`tabButton ${authMode === 'signup' ? 'active' : ''}`}
+                onClick={() => setAuthMode('signup')}
+              >
+                Sign up
+              </button>
+            </div>
+
+            <div className="formGrid">
+              {authMode === 'signup' ? (
+                <label className="field">
+                  <span className="fieldLabel">Display name</span>
+                  <input
+                    className="searchInput"
+                    value={authDisplayName}
+                    onChange={(e) => setAuthDisplayName(e.target.value)}
+                    placeholder="e.g. Edek"
+                  />
+                </label>
+              ) : null}
+
+              <label className="field">
+                <span className="fieldLabel">Email</span>
+                <input
+                  className="searchInput"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="name@email.com"
+                  inputMode="email"
+                />
+              </label>
+
+              <label className="field">
+                <span className="fieldLabel">Password</span>
+                <input
+                  className="searchInput"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="••••"
+                  type="password"
+                />
+              </label>
+
+              {authError ? <div className="formError">{authError}</div> : null}
+
+              <button className="primaryButton" type="button" onClick={submitAuth}>
+                {authMode === 'login' ? 'Log in' : 'Create account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
