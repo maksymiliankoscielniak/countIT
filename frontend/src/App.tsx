@@ -16,6 +16,8 @@ type Meal = {
   products: Product[]
   isSearching?: boolean
   searchQuery?: string
+  isRenaming?: boolean
+  renameDraft?: string
 }
 
 type DayState = {
@@ -72,12 +74,6 @@ function toISODateKey(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
-function addDays(dateKey: string, deltaDays: number) {
-  const d = new Date(`${dateKey}T00:00:00`)
-  d.setDate(d.getDate() + deltaDays)
-  return toISODateKey(d)
-}
-
 function formatDayLabel(dateKey: string) {
   const d = new Date(`${dateKey}T00:00:00`)
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -86,6 +82,36 @@ function formatDayLabel(dateKey: string) {
 function weekdayLetter(dateKey: string) {
   const d = new Date(`${dateKey}T00:00:00`)
   return d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1).toUpperCase()
+}
+
+function monthKey(dateKey: string) {
+  return dateKey.slice(0, 7) // YYYY-MM
+}
+
+function monthLabel(dateKeyOrMonthKey: string) {
+  const key = dateKeyOrMonthKey.length === 7 ? `${dateKeyOrMonthKey}-01` : dateKeyOrMonthKey
+  const d = new Date(`${key}T00:00:00`)
+  return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+}
+
+function daysInMonth(month: string) {
+  const first = new Date(`${month}-01T00:00:00`)
+  const last = new Date(first)
+  last.setMonth(first.getMonth() + 1)
+  last.setDate(0)
+  const out: string[] = []
+  for (let day = 1; day <= last.getDate(); day++) {
+    const d = new Date(first)
+    d.setDate(day)
+    out.push(toISODateKey(d))
+  }
+  return out
+}
+
+function addMonths(monthKeyStr: string, delta: number) {
+  const d = new Date(`${monthKeyStr}-01T00:00:00`)
+  d.setMonth(d.getMonth() + delta)
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`
 }
 
 function uid(prefix = 'id') {
@@ -117,12 +143,7 @@ export default function App() {
   const dragMealIdRef = useRef<string | null>(null)
   const [dragMealId, setDragMealId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<{ mealId: string; position: 'before' | 'after' } | null>(null)
-  const dayListRef = useRef<HTMLDivElement | null>(null)
-
-  const [daysRange, setDaysRange] = useState<{ start: string; end: string }>(() => ({
-    start: addDays(todayKey, -60),
-    end: addDays(todayKey, 60),
-  }))
+  const [activeMonth, setActiveMonth] = useState(() => monthKey(todayKey))
 
   const [isDaysOpenMobile, setIsDaysOpenMobile] = useState(false)
 
@@ -162,15 +183,7 @@ export default function App() {
     else localStorage.removeItem('countit_session')
   }, [session])
 
-  const days = useMemo(() => {
-    const out: string[] = []
-    let cur = daysRange.start
-    while (cur <= daysRange.end) {
-      out.push(cur)
-      cur = addDays(cur, 1)
-    }
-    return out
-  }, [daysRange])
+  const days = useMemo(() => daysInMonth(activeMonth), [activeMonth])
 
   const currentMeals = useMemo(() => dayData[selectedDayKey]?.meals ?? [], [dayData, selectedDayKey])
 
@@ -195,7 +208,15 @@ export default function App() {
 
   function addMeal() {
     const n = currentMeals.length + 1
-    const meal: Meal = { id: uid('meal'), name: `Meal ${n}`, products: [], isSearching: false, searchQuery: '' }
+    const meal: Meal = {
+      id: uid('meal'),
+      name: `Meal ${n}`,
+      products: [],
+      isSearching: false,
+      searchQuery: '',
+      isRenaming: false,
+      renameDraft: '',
+    }
     setMeals([...currentMeals, meal])
   }
 
@@ -220,6 +241,32 @@ export default function App() {
         m.id === mealId ? { ...m, isSearching: true, searchQuery: m.searchQuery ?? '' } : { ...m, isSearching: false },
       ),
     )
+  }
+
+  function beginRename(mealId: string) {
+    setMeals(
+      currentMeals.map((m) =>
+        m.id === mealId ? { ...m, isRenaming: true, renameDraft: m.name } : { ...m, isRenaming: false },
+      ),
+    )
+  }
+
+  function setRenameDraft(mealId: string, value: string) {
+    setMeals(currentMeals.map((m) => (m.id === mealId ? { ...m, renameDraft: value } : m)))
+  }
+
+  function commitRename(mealId: string) {
+    setMeals(
+      currentMeals.map((m) => {
+        if (m.id !== mealId) return m
+        const nextName = (m.renameDraft ?? '').trim()
+        return { ...m, name: nextName.length ? nextName : m.name, isRenaming: false }
+      }),
+    )
+  }
+
+  function cancelRename(mealId: string) {
+    setMeals(currentMeals.map((m) => (m.id === mealId ? { ...m, isRenaming: false } : m)))
   }
 
   function closeSearch(mealId: string) {
@@ -271,6 +318,39 @@ export default function App() {
     insertAt = clamp(insertAt, 0, next.length)
     next.splice(insertAt, 0, item)
     setMeals(next)
+  }
+
+  function beginPointerReorder(e: React.PointerEvent, mealId: string) {
+    // Mobile Safari doesn't support HTML5 drag well; use pointer-based reorder.
+    e.preventDefault()
+    dragMealIdRef.current = mealId
+    setDragMealId(mealId)
+    setDropTarget(null)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  function updatePointerReorder(e: React.PointerEvent) {
+    const from = dragMealIdRef.current
+    if (!from) return
+    const els = document.elementsFromPoint(e.clientX, e.clientY) as HTMLElement[]
+    const mealEl = els.find((el) => el.dataset && 'mealId' in el.dataset) as HTMLElement | undefined
+    const targetId = mealEl?.dataset.mealId
+    if (!targetId || targetId === from) {
+      setDropTarget(null)
+      return
+    }
+    const rect = mealEl.getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const position: 'before' | 'after' = y < rect.height / 2 ? 'before' : 'after'
+    setDropTarget({ mealId: targetId, position })
+  }
+
+  function endPointerReorder() {
+    const from = dragMealIdRef.current
+    dragMealIdRef.current = null
+    if (from && dropTarget) reorderMealsAt(from, dropTarget.mealId, dropTarget.position)
+    setDragMealId(null)
+    setDropTarget(null)
   }
 
   const currentUser = useMemo(() => {
@@ -332,18 +412,6 @@ export default function App() {
     setIsAuthOpen(false)
   }
 
-  function onDaysScroll() {
-    const el = dayListRef.current
-    if (!el) return
-    const nearTop = el.scrollTop < 120
-    const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 120
-    if (nearTop) {
-      setDaysRange((r) => ({ ...r, start: addDays(r.start, -90) }))
-    } else if (nearBottom) {
-      setDaysRange((r) => ({ ...r, end: addDays(r.end, 90) }))
-    }
-  }
-
   return (
     <div className="app">
       <header className="topbar">
@@ -374,8 +442,27 @@ export default function App() {
       </header>
 
       <aside className={`left ${isDaysOpenMobile ? 'openMobile' : ''}`}>
-        <div className="panelTitle">Days</div>
-        <div className="dayList" role="listbox" aria-label="Days" ref={dayListRef} onScroll={onDaysScroll}>
+        <div className="daysHeader">
+          <div>
+            <div className="panelTitle">Days</div>
+            <div className="monthTitle">{monthLabel(activeMonth)}</div>
+          </div>
+          <button
+            className="ghostButton"
+            type="button"
+            onClick={() => {
+              setActiveMonth(monthKey(todayKey))
+              ensureDay(todayKey)
+              setSelectedDayKey(todayKey)
+              setIsDaysOpenMobile(false)
+            }}
+            title="Go to today"
+          >
+            Today
+          </button>
+        </div>
+
+        <div className="dayList" role="listbox" aria-label="Days">
           {days.map((key) => {
             const isActive = key === selectedDayKey
             const label = key === todayKey ? `Today · ${formatDayLabel(key)}` : formatDayLabel(key)
@@ -386,6 +473,7 @@ export default function App() {
                 onClick={() => {
                   ensureDay(key)
                   setSelectedDayKey(key)
+                  setActiveMonth(monthKey(key))
                   setIsDaysOpenMobile(false)
                 }}
                 role="option"
@@ -398,6 +486,15 @@ export default function App() {
               </button>
             )
           })}
+        </div>
+
+        <div className="daysFooter">
+          <button className="ghostButton" type="button" onClick={() => setActiveMonth((m) => addMonths(m, -1))}>
+            ← Prev
+          </button>
+          <button className="ghostButton" type="button" onClick={() => setActiveMonth((m) => addMonths(m, 1))}>
+            Next →
+          </button>
         </div>
       </aside>
 
@@ -432,6 +529,7 @@ export default function App() {
               <section
                 key={meal.id}
                 className={`mealCard ${dragMealId === meal.id ? 'dragging' : ''}`}
+                data-meal-id={meal.id}
                 draggable
                 onDragStart={() => {
                   dragMealIdRef.current = meal.id
@@ -459,16 +557,42 @@ export default function App() {
                   setDragMealId(null)
                   setDropTarget(null)
                 }}
+                onPointerMove={updatePointerReorder}
+                onPointerUp={endPointerReorder}
+                onPointerCancel={endPointerReorder}
               >
                 {dropTarget?.mealId === meal.id ? (
                   <div className={`dropIndicator ${dropTarget.position}`} aria-hidden="true" />
                 ) : null}
                 <div className="mealHeader">
                   <div className="mealTitle">
-                    <span className="dragHint" title="Drag to reorder" aria-hidden="true">
+                    <button
+                      className="dragHandle"
+                      type="button"
+                      title="Drag to reorder"
+                      aria-label="Reorder meal"
+                      onPointerDown={(e) => beginPointerReorder(e, meal.id)}
+                    >
                       ⋮⋮
-                    </span>
-                    <span>{meal.name}</span>
+                    </button>
+                    {meal.isRenaming ? (
+                      <input
+                        className="mealNameInput"
+                        value={meal.renameDraft ?? ''}
+                        onChange={(e) => setRenameDraft(meal.id, e.target.value)}
+                        onBlur={() => commitRename(meal.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitRename(meal.id)
+                          if (e.key === 'Escape') cancelRename(meal.id)
+                        }}
+                        autoFocus
+                        aria-label="Meal name"
+                      />
+                    ) : (
+                      <button className="mealNameButton" type="button" onClick={() => beginRename(meal.id)} title="Rename meal">
+                        {meal.name}
+                      </button>
+                    )}
                   </div>
                   <div className="mealActions">
                     <button className="iconButton" type="button" onClick={() => moveMeal(meal.id, -1)} title="Move up">

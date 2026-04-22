@@ -94,7 +94,10 @@
   grid-area: left;
   border-right: 1px solid var(--border);
   padding: 14px;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .right {
@@ -122,9 +125,36 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: calc(100svh - 64px - 14px - 14px - 24px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding-right: 4px;
+}
+
+.daysHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.monthTitle {
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 650;
+  margin-top: 2px;
+}
+
+.daysFooter {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.daysFooter .ghostButton {
+  flex: 1 1 0;
+  justify-content: center;
 }
 
 .dayItem {
@@ -263,10 +293,60 @@
   color: var(--text-h);
 }
 
-.dragHint {
-  font-size: 16px;
-  opacity: 0.55;
+.mealNameButton {
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  border-radius: 10px;
+  cursor: text;
+  color: var(--text-h);
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+}
+
+.mealNameButton:hover {
+  background: color-mix(in oklab, var(--bg) 80%, var(--border));
+}
+
+.mealNameInput {
+  width: min(320px, 45vw);
+  font: inherit;
+  font-weight: 650;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  color: var(--text-h);
+  outline: none;
+}
+
+.mealNameInput:focus {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-bg) 70%, transparent);
+}
+
+.dragHandle {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  cursor: grab;
+  color: var(--text-h);
+  opacity: 0.7;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  touch-action: none;
   user-select: none;
+  line-height: 1;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
 }
 
 .mealActions {
@@ -672,6 +752,10 @@
 
   .dayMini {
     display: grid;
+  }
+
+  .dayLabel {
+    display: none;
   }
 
   .productRow {
