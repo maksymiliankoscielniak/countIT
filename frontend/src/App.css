@@ -1,0 +1,479 @@
+.app {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 320px;
+  grid-template-rows: 64px minmax(0, 1fr);
+  grid-template-areas:
+    "top top top"
+    "left center right";
+  height: 100svh;
+  background: var(--bg);
+}
+
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.brand {
+  font-family: var(--heading);
+  color: var(--text-h);
+  font-weight: 650;
+  letter-spacing: -0.5px;
+  font-size: 20px;
+}
+
+.topbarMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbarDay {
+  font-size: 14px;
+  color: var(--text);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--bg) 85%, var(--accent-bg));
+}
+
+.left,
+.right,
+.center {
+  min-height: 0;
+}
+
+.left {
+  grid-area: left;
+  border-right: 1px solid var(--border);
+  padding: 14px;
+  overflow: auto;
+}
+
+.right {
+  grid-area: right;
+  border-left: 1px solid var(--border);
+  padding: 14px;
+  overflow: auto;
+}
+
+.center {
+  grid-area: center;
+  padding: 14px 18px 22px;
+  overflow: auto;
+}
+
+.panelTitle {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--text) 85%, transparent);
+  margin-bottom: 10px;
+}
+
+.dayList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dayItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  color: var(--text-h);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.dayItem:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.dayItem.active {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+  background: var(--accent-bg);
+}
+
+.dayLabel {
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.centerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ghostButton {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  cursor: pointer;
+  color: var(--text-h);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+.ghostButton:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.mealList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.addMealTile {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 16px;
+  border-radius: 999px;
+  border: 1px dashed color-mix(in oklab, var(--border) 80%, var(--accent) 20%);
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+  cursor: pointer;
+}
+
+.addMealTileText {
+  text-align: left;
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.addMealTilePlus {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.mealCard {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  padding: 12px;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transition: box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.mealCard:focus-within {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+}
+
+.mealHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mealTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.dragHint {
+  font-size: 16px;
+  opacity: 0.55;
+  user-select: none;
+}
+
+.mealActions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.iconButton {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  cursor: pointer;
+  color: var(--text-h);
+  font: inherit;
+}
+
+.iconButton:hover {
+  box-shadow: var(--shadow);
+}
+
+.iconButton.danger {
+  color: color-mix(in oklab, #ff3b3b 75%, var(--text-h));
+}
+
+.mealMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.pill {
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-h);
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+}
+
+.pill.subtle {
+  color: color-mix(in oklab, var(--text-h) 70%, var(--text));
+}
+
+.addProductInline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  cursor: pointer;
+}
+
+.addProductInline.compact {
+  margin-top: 10px;
+}
+
+.addProductInlineText {
+  text-align: left;
+  color: var(--text-h);
+  font-size: 13px;
+}
+
+.addProductInlinePlus {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.productList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.productRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+}
+
+.productName {
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.productMacros {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: color-mix(in oklab, var(--text) 92%, transparent);
+  white-space: nowrap;
+}
+
+.searchArea {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.searchRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  color: var(--text-h);
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-bg) 70%, transparent);
+}
+
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resultItem {
+  text-align: left;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  color: var(--text-h);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+.resultItem:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.resultName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.resultMacros {
+  margin-top: 3px;
+  font-size: 12px;
+  color: color-mix(in oklab, var(--text) 92%, transparent);
+}
+
+.emptyHint {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.macroList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.macroRowTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.macroName {
+  color: var(--text-h);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.macroValue {
+  color: var(--text-h);
+  font-size: 13px;
+}
+
+.macroGoal {
+  color: color-mix(in oklab, var(--text) 92%, transparent);
+}
+
+.macroBar {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--bg) 75%, var(--border));
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.macroBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 45%, #3ddc97) 100%);
+}
+
+@media (max-width: 1100px) {
+  .app {
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-areas:
+      "top top"
+      "left center";
+  }
+  .right {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 64px auto 1fr;
+    grid-template-areas:
+      "top"
+      "left"
+      "center";
+  }
+  .left {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .center {
+    padding: 14px;
+  }
+  .productRow {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+  }
+  .productMacros {
+    grid-column: 1 / -1;
+    white-space: normal;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+}
