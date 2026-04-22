@@ -79,9 +79,18 @@ function formatDayLabel(dateKey: string) {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-function weekdayLetter(dateKey: string) {
+function weekdayShort(dateKey: string) {
   const d = new Date(`${dateKey}T00:00:00`)
-  return d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1).toUpperCase()
+  return d.toLocaleDateString(undefined, { weekday: 'short' })
+}
+
+function monthShort(dateKey: string) {
+  const d = new Date(`${dateKey}T00:00:00`)
+  return d.toLocaleDateString(undefined, { month: 'short' })
+}
+
+function dayOfMonth(dateKey: string) {
+  return Number(dateKey.slice(8, 10))
 }
 
 function monthKey(dateKey: string) {
@@ -481,7 +490,10 @@ export default function App() {
               >
                 <span className="dayLabel">{label}</span>
                 <span className="dayMini" aria-hidden="true">
-                  {weekdayLetter(key)}
+                  <span className="dayMiniWeek">{weekdayShort(key).slice(0, 2)}</span>
+                  <span className="dayMiniDate">
+                    {dayOfMonth(key)} {monthShort(key)}
+                  </span>
                 </span>
               </button>
             )
@@ -716,6 +728,37 @@ export default function App() {
           })}
         </div>
       </aside>
+
+      <div className="mobileMacroDock" aria-label="Macros (mobile)">
+        <div className="mobileMacroDockInner">
+          {(Object.keys(MACRO_LABELS) as MacroKey[]).map((k) => {
+            const value = dayTotals[k]
+            const goal = DEFAULT_GOALS[k]
+            const pct = goal > 0 ? clamp(value / goal, 0, 1) : 0
+            const short =
+              k === 'calories'
+                ? 'Kcal'
+                : k === 'protein'
+                  ? 'P'
+                  : k === 'carbs'
+                    ? 'C'
+                    : k === 'fat'
+                      ? 'F'
+                      : 'Fi'
+            return (
+              <div key={k} className="mobileMacroItem">
+                <div className="mobileMacroTop">
+                  <span className="mobileMacroKey">{short}</span>
+                  <span className="mobileMacroVal">{value}</span>
+                </div>
+                <div className="mobileMacroBar" aria-hidden="true">
+                  <div className="mobileMacroFill" style={{ width: `${pct * 100}%` }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {isAuthOpen ? (
         <div
