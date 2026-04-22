@@ -6,7 +6,7 @@
     "top top top"
     "left center right";
   height: 100svh;
-  background: var(--bg);
+  background: transparent;
 }
 
 .topbar {

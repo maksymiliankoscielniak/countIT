@@ -58,6 +58,11 @@
 
 body {
   margin: 0;
+  background:
+    radial-gradient(1100px 520px at 50% 115%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 65%),
+    linear-gradient(to top, color-mix(in oklab, var(--accent) 10%, transparent) 0%, transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
 }
 
 button,
