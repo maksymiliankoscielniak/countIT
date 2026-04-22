@@ -490,10 +490,21 @@ export default function App() {
               >
                 <span className="dayLabel">{label}</span>
                 <span className="dayMini" aria-hidden="true">
-                  <span className="dayMiniWeek">{weekdayShort(key).slice(0, 2)}</span>
-                  <span className="dayMiniDate">
-                    {dayOfMonth(key)} {monthShort(key)}
-                  </span>
+                  {key === todayKey ? (
+                    <>
+                      <span className="dayMiniWeek">Today</span>
+                      <span className="dayMiniDate">
+                        {dayOfMonth(key)} {monthShort(key)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="dayMiniWeek">{weekdayShort(key).slice(0, 2)}</span>
+                      <span className="dayMiniDate">
+                        {dayOfMonth(key)} {monthShort(key)}
+                      </span>
+                    </>
+                  )}
                 </span>
               </button>
             )
