@@ -424,7 +424,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">countIT</div>
+        <div className="brand" aria-label="countIT">
+          <img className="brandLogo" src={`${import.meta.env.BASE_URL}countIT.svg`} alt="countIT" />
+        </div>
         <div className="topbarMeta">
           <button className="ghostButton mobileOnly" type="button" onClick={() => setIsDaysOpenMobile((v) => !v)}>
             Days
