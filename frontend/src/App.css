@@ -84,6 +84,14 @@
   display: none;
 }
 
+.desktopOnly {
+  display: flex;
+}
+
+.mobileAuthButton {
+  display: none;
+}
+
 .topbarDay {
   font-size: 14px;
   color: var(--text);
@@ -760,6 +768,18 @@
     border-radius: 12px;
   }
 
+  .desktopOnly {
+    display: none;
+  }
+
+  .mobileAuthButton {
+    display: inline-flex;
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+
   .app {
     grid-template-columns: 1fr;
     grid-template-rows: 88px 1fr;
@@ -786,6 +806,10 @@
 
   .mobileOnly {
     display: inline-flex;
+  }
+
+  .brandLogo {
+    height: 56px;
   }
 
   .center {

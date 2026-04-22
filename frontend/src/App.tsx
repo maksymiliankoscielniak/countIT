@@ -440,14 +440,19 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div className="authButtons">
-              <button className="ghostButton" type="button" onClick={() => openAuth('login')}>
-                Log in
+            <>
+              <div className="authButtons desktopOnly">
+                <button className="ghostButton" type="button" onClick={() => openAuth('login')}>
+                  Log in
+                </button>
+                <button className="ghostButton" type="button" onClick={() => openAuth('signup')}>
+                  Sign up
+                </button>
+              </div>
+              <button className="ghostButton mobileAuthButton" type="button" onClick={() => openAuth('login')}>
+                Account
               </button>
-              <button className="ghostButton" type="button" onClick={() => openAuth('signup')}>
-                Sign up
-              </button>
-            </div>
+            </>
           )}
         </div>
       </header>
