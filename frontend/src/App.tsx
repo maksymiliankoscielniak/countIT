@@ -400,6 +400,14 @@ export default function App() {
 
   function runSearch(mealId: string, q: string) {
     const trimmed = q.trim()
+    if (!trimmed) {
+      setProductSearch((prev) => ({
+        ...prev,
+        [mealId]: { items: [], isLoading: false, error: null },
+      }))
+      return
+    }
+
     setProductSearch((prev) => ({
       ...prev,
       [mealId]: { items: prev[mealId]?.items ?? [], isLoading: true, error: null },
@@ -407,7 +415,7 @@ export default function App() {
     void (async () => {
       try {
         const res = await apiFetch<{ items: Array<{ name: string; macros: Record<MacroKey, number> }> }>(
-          `/products/search?query=${encodeURIComponent(trimmed || 'apple')}&page=1&pageSize=10`,
+          `/products/search?query=${encodeURIComponent(trimmed)}&page=1&pageSize=10`,
         )
         const items = (res.items ?? []).map((it) => ({ name: it.name, macros: it.macros }))
         setProductSearch((prev) => ({ ...prev, [mealId]: { items, isLoading: false, error: null } }))
