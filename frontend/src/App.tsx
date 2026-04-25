@@ -2,6 +2,8 @@ import './App.css'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { apiFetch } from './lib/api'
+
 type MacroKey = 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber'
 
 type Product = {
@@ -24,15 +26,10 @@ type DayState = {
   meals: Meal[]
 }
 
-type AuthUser = {
+type ApiUser = {
   id: string
   email: string
   displayName: string
-  password: string
-}
-
-type Session = {
-  userId: string
 }
 
 const MACRO_LABELS: Record<MacroKey, string> = {
@@ -50,21 +47,6 @@ const DEFAULT_GOALS: Record<MacroKey, number> = {
   fat: 70,
   fiber: 30,
 }
-
-const MOCK_CATALOG: Array<Omit<Product, 'id'>> = [
-  { name: 'Chicken breast (100g)', macros: { calories: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0 } },
-  { name: 'Egg (1 large)', macros: { calories: 72, protein: 6.3, carbs: 0.4, fat: 4.8, fiber: 0 } },
-  { name: 'Greek yogurt (200g)', macros: { calories: 146, protein: 20, carbs: 8, fat: 4, fiber: 0 } },
-  { name: 'Rice cooked (150g)', macros: { calories: 195, protein: 4, carbs: 42, fat: 0.4, fiber: 0.6 } },
-  { name: 'Oats (60g)', macros: { calories: 228, protein: 7.5, carbs: 39, fat: 4.2, fiber: 6 } },
-  { name: 'Banana (1 medium)', macros: { calories: 105, protein: 1.3, carbs: 27, fat: 0.4, fiber: 3.1 } },
-  { name: 'Apple (1 medium)', macros: { calories: 95, protein: 0.5, carbs: 25, fat: 0.3, fiber: 4.4 } },
-  { name: 'Avocado (1/2)', macros: { calories: 120, protein: 1.5, carbs: 6, fat: 11, fiber: 5 } },
-  { name: 'Salmon (120g)', macros: { calories: 240, protein: 26, carbs: 0, fat: 14, fiber: 0 } },
-  { name: 'Olive oil (1 tbsp)', macros: { calories: 119, protein: 0, carbs: 0, fat: 13.5, fiber: 0 } },
-  { name: 'Broccoli (150g)', macros: { calories: 51, protein: 4.2, carbs: 10, fat: 0.6, fiber: 5.1 } },
-  { name: 'Protein shake', macros: { calories: 220, protein: 35, carbs: 10, fat: 5, fiber: 2 } },
-]
 
 function pad2(n: number) {
   return String(n).padStart(2, '0')
@@ -161,36 +143,38 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authDisplayName, setAuthDisplayName] = useState('')
+  const [authRememberMe, setAuthRememberMe] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
-  const [users, setUsers] = useState<AuthUser[]>(() => {
-    try {
-      const raw = localStorage.getItem('countit_users')
-      if (!raw) return []
-      const parsed = JSON.parse(raw) as AuthUser[]
-      if (!Array.isArray(parsed)) return []
-      return parsed
-    } catch {
-      return []
-    }
-  })
-  const [session, setSession] = useState<Session | null>(() => {
-    try {
-      const raw = localStorage.getItem('countit_session')
-      if (!raw) return null
-      return JSON.parse(raw) as Session
-    } catch {
-      return null
-    }
-  })
+  const [currentUser, setCurrentUser] = useState<ApiUser | null>(null)
+
+  const [productSearch, setProductSearch] = useState<
+    Record<string, { items: Array<Omit<Product, 'id'>>; isLoading: boolean; error: string | null }>
+  >({})
+
+  const searchTimersRef = useRef<Record<string, number>>({})
 
   useEffect(() => {
-    localStorage.setItem('countit_users', JSON.stringify(users))
-  }, [users])
-
-  useEffect(() => {
-    if (session) localStorage.setItem('countit_session', JSON.stringify(session))
-    else localStorage.removeItem('countit_session')
-  }, [session])
+    let cancelled = false
+    ;(async () => {
+      try {
+        const me = await apiFetch<ApiUser>('/me')
+        if (!cancelled) setCurrentUser(me)
+      } catch {
+        try {
+          await apiFetch<{ ok: boolean }>('/auth/refresh', { method: 'POST' })
+          const me = await apiFetch<ApiUser>('/me')
+          if (!cancelled) setCurrentUser(me)
+        } catch {
+          // not logged in
+        }
+      } finally {
+        // no-op
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const days = useMemo(() => daysInMonth(activeMonth), [activeMonth])
 
@@ -250,6 +234,8 @@ export default function App() {
         m.id === mealId ? { ...m, isSearching: true, searchQuery: m.searchQuery ?? '' } : { ...m, isSearching: false },
       ),
     )
+    const initial = currentMeals.find((m) => m.id === mealId)?.searchQuery ?? ''
+    scheduleSearch(mealId, initial)
   }
 
   function beginRename(mealId: string) {
@@ -284,6 +270,7 @@ export default function App() {
 
   function setSearchQuery(mealId: string, q: string) {
     setMeals(currentMeals.map((m) => (m.id === mealId ? { ...m, searchQuery: q } : m)))
+    scheduleSearch(mealId, q)
   }
 
   function addProductToMeal(mealId: string, item: Omit<Product, 'id'>) {
@@ -362,63 +349,79 @@ export default function App() {
     setDropTarget(null)
   }
 
-  const currentUser = useMemo(() => {
-    if (!session) return null
-    return users.find((u) => u.id === session.userId) ?? null
-  }, [session, users])
-
   function openAuth(mode: 'login' | 'signup') {
     setAuthMode(mode)
     setAuthError(null)
     setAuthEmail('')
     setAuthPassword('')
     setAuthDisplayName('')
+    setAuthRememberMe(true)
     setIsAuthOpen(true)
   }
 
-  function logout() {
-    setSession(null)
+  async function logout() {
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' })
+    } catch {
+      // ignore
+    } finally {
+      setCurrentUser(null)
+    }
   }
 
-  function submitAuth() {
+  async function submitAuth() {
     setAuthError(null)
     const email = authEmail.trim().toLowerCase()
     const password = authPassword
     const displayName = authDisplayName.trim()
 
-    if (!email.includes('@')) {
-      setAuthError('Enter a valid email.')
-      return
-    }
-    if (password.length < 4) {
-      setAuthError('Password must be at least 4 characters (temporary frontend-only).')
-      return
-    }
+    try {
+      if (authMode === 'signup') {
+        const me = await apiFetch<ApiUser>('/auth/register', {
+          method: 'POST',
+          body: { email, password, displayName, rememberMe: authRememberMe },
+        })
+        setCurrentUser(me)
+        setIsAuthOpen(false)
+        return
+      }
 
-    if (authMode === 'signup') {
-      if (displayName.length < 2) {
-        setAuthError('Display name must be at least 2 characters.')
-        return
-      }
-      const exists = users.some((u) => u.email === email)
-      if (exists) {
-        setAuthError('Account already exists. Try logging in.')
-        return
-      }
-      const user: AuthUser = { id: uid('user'), email, password, displayName }
-      setUsers((prev) => [...prev, user])
-      setSession({ userId: user.id })
+      const me = await apiFetch<ApiUser>('/auth/login', {
+        method: 'POST',
+        body: { email, password, rememberMe: authRememberMe },
+      })
+      setCurrentUser(me)
       setIsAuthOpen(false)
-      return
+    } catch (e) {
+      const msg = typeof e === 'object' && e && 'message' in e ? String((e as any).message) : 'Login failed'
+      setAuthError(msg)
     }
+  }
 
-    const user = users.find((u) => u.email === email && u.password === password)
-    if (!user) {
-      setAuthError('Wrong email or password.')
-      return
-    }
-    setSession({ userId: user.id })
-    setIsAuthOpen(false)
+  function runSearch(mealId: string, q: string) {
+    const trimmed = q.trim()
+    setProductSearch((prev) => ({
+      ...prev,
+      [mealId]: { items: prev[mealId]?.items ?? [], isLoading: true, error: null },
+    }))
+    void (async () => {
+      try {
+        const res = await apiFetch<{ items: Array<{ name: string; macros: Record<MacroKey, number> }> }>(
+          `/products/search?query=${encodeURIComponent(trimmed || 'apple')}&page=1&pageSize=10`,
+        )
+        const items = (res.items ?? []).map((it) => ({ name: it.name, macros: it.macros }))
+        setProductSearch((prev) => ({ ...prev, [mealId]: { items, isLoading: false, error: null } }))
+      } catch (e) {
+        const msg = typeof e === 'object' && e && 'message' in e ? String((e as any).message) : 'Search failed'
+        setProductSearch((prev) => ({ ...prev, [mealId]: { items: [], isLoading: false, error: msg } }))
+      }
+    })()
+  }
+
+  function scheduleSearch(mealId: string, q: string) {
+    const existing = searchTimersRef.current[mealId]
+    if (existing) window.clearTimeout(existing)
+    searchTimersRef.current[mealId] = window.setTimeout(() => runSearch(mealId, q), 250)
   }
 
   return (
@@ -547,11 +550,8 @@ export default function App() {
           ) : null}
 
           {currentMeals.map((meal) => {
-            const filtered = (() => {
-              const q = (meal.searchQuery ?? '').trim().toLowerCase()
-              if (!q) return MOCK_CATALOG.slice(0, 8)
-              return MOCK_CATALOG.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 10)
-            })()
+            const searchState = productSearch[meal.id] ?? { items: [], isLoading: false, error: null }
+            const filtered = searchState.items
 
             const mealTotals = sumMacros(meal.products)
 
@@ -695,24 +695,29 @@ export default function App() {
                       </button>
                     </div>
                     <div className="searchResults" role="listbox" aria-label="Products">
-                      {filtered.length === 0 ? (
+                      {searchState.isLoading ? <div className="emptyHint">Searching…</div> : null}
+                      {!searchState.isLoading && searchState.error ? (
+                        <div className="emptyHint">{searchState.error}</div>
+                      ) : null}
+                      {!searchState.isLoading && !searchState.error && filtered.length === 0 ? (
                         <div className="emptyHint">No matches.</div>
-                      ) : (
-                        filtered.map((item) => (
-                          <button
-                            key={item.name}
-                            className="resultItem"
-                            type="button"
-                            onClick={() => addProductToMeal(meal.id, item)}
-                          >
-                            <div className="resultName">{item.name}</div>
-                            <div className="resultMacros">
-                              {item.macros.calories} kcal · P {item.macros.protein}g · C {item.macros.carbs}g · F{' '}
-                              {item.macros.fat}g · Fi {item.macros.fiber}g
-                            </div>
-                          </button>
-                        ))
-                      )}
+                      ) : null}
+                      {!searchState.isLoading && !searchState.error
+                        ? filtered.map((item) => (
+                            <button
+                              key={item.name}
+                              className="resultItem"
+                              type="button"
+                              onClick={() => addProductToMeal(meal.id, item)}
+                            >
+                              <div className="resultName">{item.name}</div>
+                              <div className="resultMacros">
+                                {item.macros.calories} kcal · P {item.macros.protein}g · C {item.macros.carbs}g · F{' '}
+                                {item.macros.fat}g · Fi {item.macros.fiber}g
+                              </div>
+                            </button>
+                          ))
+                        : null}
                     </div>
                   </div>
                 ) : null}
@@ -845,6 +850,13 @@ export default function App() {
                   placeholder="••••"
                   type="password"
                 />
+              </label>
+
+              <label className="field" style={{ display: 'flex', flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                <input type="checkbox" checked={authRememberMe} onChange={(e) => setAuthRememberMe(e.target.checked)} />
+                <span className="fieldLabel" style={{ margin: 0 }}>
+                  Stay logged in
+                </span>
               </label>
 
               {authError ? <div className="formError">{authError}</div> : null}
