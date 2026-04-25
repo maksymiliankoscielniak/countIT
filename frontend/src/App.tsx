@@ -153,6 +153,47 @@ export default function App() {
 
   const searchTimersRef = useRef<Record<string, number>>({})
 
+  const [warningAccepted, setWarningAccepted] = useState(() => {
+    try {
+      return localStorage.getItem('warningAccepted') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const [customMacros, setCustomMacros] = useState<Record<MacroKey, number>>(() => {
+    try {
+      const saved = localStorage.getItem('customMacros')
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return DEFAULT_GOALS
+  })
+
+  const [pendingAdd, setPendingAdd] = useState<{ mealId: string; item: Omit<Product, 'id'>; defaultWeight: string } | null>(null)
+  
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [calcSex, setCalcSex] = useState<'male' | 'female'>('male')
+  const [calcAge, setCalcAge] = useState<number>(25)
+  const [calcWeight, setCalcWeight] = useState<number>(75)
+  const [calcHeight, setCalcHeight] = useState<number>(175)
+  const [calcActivity, setCalcActivity] = useState<number>(1.55)
+
+  function applyCalculatedMacros() {
+    let bmr = 10 * calcWeight + 6.25 * calcHeight - 5 * calcAge
+    if (calcSex === 'male') bmr += 5
+    else bmr -= 161
+    const tdee = Math.round(bmr * calcActivity)
+    const nextMacros = {
+      calories: tdee,
+      protein: Math.round(calcWeight * 2),
+      fat: Math.round(calcWeight * 1),
+      carbs: Math.max(0, Math.round((tdee - (calcWeight * 2 * 4) - (calcWeight * 1 * 9)) / 4)),
+      fiber: Math.round((tdee / 1000) * 14)
+    }
+    setCustomMacros(nextMacros)
+    localStorage.setItem('customMacros', JSON.stringify(nextMacros))
+  }
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -273,13 +314,12 @@ export default function App() {
     scheduleSearch(mealId, q)
   }
 
-  function addProductToMeal(mealId: string, item: Omit<Product, 'id'>) {
-    const product: Product = { id: uid('prod'), name: item.name, macros: item.macros }
-    setMeals(
-      currentMeals.map((m) =>
-        m.id === mealId ? { ...m, products: [...m.products, product], isSearching: false, searchQuery: '' } : m,
-      ),
-    )
+  function initiateAddProduct(mealId: string, item: Omit<Product, 'id'>) {
+    if (!currentUser) {
+      openAuth('login')
+      return
+    }
+    setPendingAdd({ mealId, item, defaultWeight: '100' })
   }
 
   function removeProduct(mealId: string, productId: string) {
@@ -446,6 +486,9 @@ export default function App() {
           {currentUser ? (
             <div className="userChip">
               <span className="userChipName">{currentUser.displayName}</span>
+              <button className="userChipLogout" type="button" onClick={() => setIsSettingsOpen(true)}>
+                Settings
+              </button>
               <button className="userChipLogout" type="button" onClick={logout}>
                 Logout
               </button>
@@ -716,7 +759,7 @@ export default function App() {
                               key={item.name}
                               className="resultItem"
                               type="button"
-                              onClick={() => addProductToMeal(meal.id, item)}
+                              onClick={() => initiateAddProduct(meal.id, item)}
                             >
                               <div className="resultName">{item.name}</div>
                               <div className="resultMacros">
@@ -740,7 +783,7 @@ export default function App() {
         <div className="macroList">
           {(Object.keys(MACRO_LABELS) as MacroKey[]).map((k) => {
             const value = dayTotals[k]
-            const goal = DEFAULT_GOALS[k]
+            const goal = customMacros[k]
             const pct = goal > 0 ? clamp(value / goal, 0, 1) : 0
             return (
               <div key={k} className="macroRow">
@@ -764,7 +807,7 @@ export default function App() {
         <div className="mobileMacroDockInner">
           {(Object.keys(MACRO_LABELS) as MacroKey[]).map((k) => {
             const value = dayTotals[k]
-            const goal = DEFAULT_GOALS[k]
+            const goal = customMacros[k]
             const pct = goal > 0 ? clamp(value / goal, 0, 1) : 0
             const short =
               k === 'calories'
@@ -872,6 +915,153 @@ export default function App() {
               <button className="primaryButton" type="button" onClick={submitAuth}>
                 {authMode === 'login' ? 'Log in' : 'Create account'}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      ) : null}
+
+      {!warningAccepted ? (
+        <div className="modalOverlay" style={{ zIndex: 9999 }}>
+          <div className="modalCard">
+            <div className="modalHeader">
+              <div className="modalTitle">⚠️ Important Notice</div>
+            </div>
+            <div className="modalBody" style={{ padding: '20px', lineHeight: '1.6' }}>
+              <p style={{ marginBottom: '15px' }}>Welcome to countIT!</p>
+              <p style={{ marginBottom: '15px' }}>
+                Please note that due to the use of a free database tier, this application and all user data will be <strong>permanently deleted on May 25th, 2026</strong>.
+              </p>
+              <p style={{ marginBottom: '25px' }}>After that date, all accounts and tracked meals will be gone.</p>
+              <button className="primaryButton" type="button" onClick={() => {
+                localStorage.setItem('warningAccepted', 'true')
+                setWarningAccepted(true)
+              }}>
+                I Understand
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingAdd ? (
+        <div className="modalOverlay" role="dialog" onMouseDown={(e) => { if (e.target === e.currentTarget) setPendingAdd(null) }}>
+          <div className="modalCard" style={{ maxWidth: '400px' }}>
+            <div className="modalHeader">
+              <div className="modalTitle">Add {pendingAdd.item.name}</div>
+              <button className="iconButton danger" type="button" onClick={() => setPendingAdd(null)} title="Close">
+                ×
+              </button>
+            </div>
+            <div className="modalBody" style={{ padding: '20px' }}>
+              <label className="field">
+                <span className="fieldLabel">Weight (grams)</span>
+                <input
+                  className="searchInput"
+                  type="number"
+                  value={pendingAdd.defaultWeight}
+                  onChange={(e) => setPendingAdd({ ...pendingAdd, defaultWeight: e.target.value })}
+                  autoFocus
+                />
+              </label>
+              <div style={{ marginTop: '20px' }}>
+                <button className="primaryButton" type="button" onClick={() => {
+                  const w = parseFloat(pendingAdd.defaultWeight) || 100
+                  const factor = w / 100
+                  const scaledMacros = {
+                    calories: Math.round(pendingAdd.item.macros.calories * factor * 10) / 10,
+                    protein: Math.round(pendingAdd.item.macros.protein * factor * 10) / 10,
+                    carbs: Math.round(pendingAdd.item.macros.carbs * factor * 10) / 10,
+                    fat: Math.round(pendingAdd.item.macros.fat * factor * 10) / 10,
+                    fiber: Math.round(pendingAdd.item.macros.fiber * factor * 10) / 10,
+                  }
+                  const product: Product = { id: uid('prod'), name: `${pendingAdd.item.name} (${w}g)`, macros: scaledMacros }
+                  setMeals(
+                    currentMeals.map((m) =>
+                      m.id === pendingAdd.mealId ? { ...m, products: [...m.products, product], isSearching: false, searchQuery: '' } : m,
+                    ),
+                  )
+                  setPendingAdd(null)
+                }}>
+                  Confirm & Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isSettingsOpen ? (
+        <div className="modalOverlay" role="dialog" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsSettingsOpen(false) }}>
+          <div className="modalCard" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modalHeader">
+              <div className="modalTitle">Settings</div>
+              <button className="iconButton danger" type="button" onClick={() => setIsSettingsOpen(false)} title="Close">
+                ×
+              </button>
+            </div>
+            <div className="modalBody" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              
+              <div>
+                <h2>Custom Macros</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '10px' }}>
+                  {(Object.keys(MACRO_LABELS) as MacroKey[]).map(k => (
+                    <label key={k} className="field">
+                      <span className="fieldLabel">{MACRO_LABELS[k]}</span>
+                      <input
+                        className="searchInput"
+                        type="number"
+                        value={customMacros[k]}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0
+                          const next = { ...customMacros, [k]: val }
+                          setCustomMacros(next)
+                          localStorage.setItem('customMacros', JSON.stringify(next))
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                <h2>Calculate from Body Metrics</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '10px' }}>
+                  <label className="field">
+                    <span className="fieldLabel">Sex</span>
+                    <select className="searchInput" value={calcSex} onChange={e => setCalcSex(e.target.value as 'male'|'female')}>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Activity Level</span>
+                    <select className="searchInput" value={calcActivity} onChange={e => setCalcActivity(parseFloat(e.target.value))}>
+                      <option value="1.2">Sedentary (office job)</option>
+                      <option value="1.375">Light Exercise (1-2 days/week)</option>
+                      <option value="1.55">Moderate Exercise (3-5 days/week)</option>
+                      <option value="1.725">Heavy Exercise (6-7 days/week)</option>
+                      <option value="1.9">Athlete (2x per day)</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Age (years)</span>
+                    <input className="searchInput" type="number" value={calcAge} onChange={e => setCalcAge(parseFloat(e.target.value)||0)} />
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Weight (kg)</span>
+                    <input className="searchInput" type="number" value={calcWeight} onChange={e => setCalcWeight(parseFloat(e.target.value)||0)} />
+                  </label>
+                  <label className="field" style={{ gridColumn: 'span 2' }}>
+                    <span className="fieldLabel">Height (cm)</span>
+                    <input className="searchInput" type="number" value={calcHeight} onChange={e => setCalcHeight(parseFloat(e.target.value)||0)} />
+                  </label>
+                </div>
+                <button className="primaryButton" style={{ marginTop: '20px' }} type="button" onClick={applyCalculatedMacros}>
+                  Generate Macros
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
