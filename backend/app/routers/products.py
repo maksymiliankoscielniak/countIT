@@ -10,7 +10,7 @@ def products_health():
 
 @router.get("/search")
 async def search_products(query: str, page: int = 1, pageSize: int = 10):
-  from app.services.openfoodfacts import OpenFoodFactsClient
+  from app.services.usda import UsdaClient
 
   q = query.strip()
   if not q:
@@ -19,7 +19,7 @@ async def search_products(query: str, page: int = 1, pageSize: int = 10):
   page = max(1, page)
   page_size = max(1, min(25, pageSize))
   try:
-    items = await OpenFoodFactsClient().search(q, page=page, page_size=page_size)
+    items = await UsdaClient().search(q, page=page, page_size=page_size)
     return {"items": items}
   except Exception as e:
     from fastapi import HTTPException
@@ -28,12 +28,12 @@ async def search_products(query: str, page: int = 1, pageSize: int = 10):
 
 @router.get("/barcode/{barcode}")
 async def product_by_barcode(barcode: str):
-  from app.services.openfoodfacts import OpenFoodFactsClient
+  from app.services.usda import UsdaClient
 
   code = barcode.strip()
   if not code:
     return {"item": None}
 
-  item = await OpenFoodFactsClient().by_barcode(code)
+  item = await UsdaClient().by_barcode(code)
   return {"item": item}
 

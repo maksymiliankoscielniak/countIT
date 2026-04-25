@@ -429,7 +429,7 @@ export default function App() {
   function scheduleSearch(mealId: string, q: string) {
     const existing = searchTimersRef.current[mealId]
     if (existing) window.clearTimeout(existing)
-    searchTimersRef.current[mealId] = window.setTimeout(() => runSearch(mealId, q), 250)
+    searchTimersRef.current[mealId] = window.setTimeout(() => runSearch(mealId, q), 750)
   }
 
   return (
