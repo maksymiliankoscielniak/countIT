@@ -895,5 +895,21 @@
     right: 0;
     bottom: 0;
     z-index: 15;
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+@media (max-width: 650px) {
+  .settingsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .userChipName {
+    display: none;
   }
 }

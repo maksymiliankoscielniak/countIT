@@ -1003,7 +1003,7 @@ export default function App() {
               
               <div>
                 <h2>Custom Macros</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '10px' }}>
+                <div className="settingsGrid">
                   {(Object.keys(MACRO_LABELS) as MacroKey[]).map(k => (
                     <label key={k} className="field">
                       <span className="fieldLabel">{MACRO_LABELS[k]}</span>
@@ -1025,7 +1025,7 @@ export default function App() {
 
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
                 <h2>Calculate from Body Metrics</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '10px' }}>
+                <div className="settingsGrid">
                   <label className="field">
                     <span className="fieldLabel">Sex</span>
                     <select className="searchInput" value={calcSex} onChange={e => setCalcSex(e.target.value as 'male'|'female')}>
@@ -1051,7 +1051,7 @@ export default function App() {
                     <span className="fieldLabel">Weight (kg)</span>
                     <input className="searchInput" type="number" value={calcWeight} onChange={e => setCalcWeight(parseFloat(e.target.value)||0)} />
                   </label>
-                  <label className="field" style={{ gridColumn: 'span 2' }}>
+                  <label className="field" style={{ gridColumn: '1 / -1' }}>
                     <span className="fieldLabel">Height (cm)</span>
                     <input className="searchInput" type="number" value={calcHeight} onChange={e => setCalcHeight(parseFloat(e.target.value)||0)} />
                   </label>
