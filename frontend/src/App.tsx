@@ -486,11 +486,13 @@ export default function App() {
           {currentUser ? (
             <div className="userChip">
               <span className="userChipName">{currentUser.displayName}</span>
-              <button className="userChipLogout" type="button" onClick={() => setIsSettingsOpen(true)}>
-                Settings
+              <button className="userChipLogout" type="button" onClick={() => setIsSettingsOpen(true)} title="Settings">
+                <span className="desktopOnly">Settings</span>
+                <span className="mobileOnly">⚙️</span>
               </button>
-              <button className="userChipLogout" type="button" onClick={logout}>
-                Logout
+              <button className="userChipLogout" type="button" onClick={logout} title="Logout">
+                <span className="desktopOnly">Logout</span>
+                <span className="mobileOnly">🚪</span>
               </button>
             </div>
           ) : (
