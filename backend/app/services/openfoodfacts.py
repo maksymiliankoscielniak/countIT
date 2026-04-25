@@ -61,7 +61,8 @@ class OpenFoodFactsClient:
       "page_size": page_size,
     }
 
-    async with httpx.AsyncClient(timeout=20) as client:
+    headers = {"User-Agent": "countIT - Web App - https://github.com/maksymiliankoscielniak/countIT"}
+    async with httpx.AsyncClient(timeout=20, headers=headers) as client:
       r = await client.get(f"{self._base}/cgi/search.pl", params=params)
       r.raise_for_status()
       data = r.json()
@@ -75,7 +76,8 @@ class OpenFoodFactsClient:
     return out
 
   async def by_barcode(self, barcode: str) -> dict | None:
-    async with httpx.AsyncClient(timeout=20) as client:
+    headers = {"User-Agent": "countIT - Web App - https://github.com/maksymiliankoscielniak/countIT"}
+    async with httpx.AsyncClient(timeout=20, headers=headers) as client:
       r = await client.get(f"{self._base}/api/v2/product/{barcode}.json")
       if r.status_code == 404:
         return None
