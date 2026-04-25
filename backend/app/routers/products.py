@@ -21,9 +21,14 @@ async def search_products(query: str, page: int = 1, pageSize: int = 10):
   try:
     items = await UsdaClient().search(q, page=page, page_size=page_size)
     return {"items": items}
-  except Exception as e:
-    from fastapi import HTTPException
-    raise HTTPException(status_code=502, detail="External API failed or timed out. Please try again later.")
+  except Exception:
+    try:
+      from app.services.openfoodfacts import OpenFoodFactsClient
+      items = await OpenFoodFactsClient().search(q, page=page, page_size=page_size)
+      return {"items": items}
+    except Exception:
+      from fastapi import HTTPException
+      raise HTTPException(status_code=502, detail="External API failed or timed out. Please try again later.")
 
 
 @router.get("/barcode/{barcode}")
@@ -34,6 +39,16 @@ async def product_by_barcode(barcode: str):
   if not code:
     return {"item": None}
 
-  item = await UsdaClient().by_barcode(code)
-  return {"item": item}
+  try:
+    item = await UsdaClient().by_barcode(code)
+    if not item:
+      raise Exception("Not found in USDA")
+    return {"item": item}
+  except Exception:
+    try:
+      from app.services.openfoodfacts import OpenFoodFactsClient
+      item = await OpenFoodFactsClient().by_barcode(code)
+      return {"item": item}
+    except Exception:
+      return {"item": None}
 
