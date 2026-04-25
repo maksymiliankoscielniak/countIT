@@ -145,6 +145,7 @@ export default function App() {
   const [authDisplayName, setAuthDisplayName] = useState('')
   const [authRememberMe, setAuthRememberMe] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null)
 
   const [productSearch, setProductSearch] = useState<
@@ -411,6 +412,7 @@ export default function App() {
 
   async function submitAuth() {
     setAuthError(null)
+    setIsAuthLoading(true)
     const email = authEmail.trim().toLowerCase()
     const password = authPassword
     const displayName = authDisplayName.trim()
@@ -435,6 +437,8 @@ export default function App() {
     } catch (e) {
       const msg = typeof e === 'object' && e && 'message' in e ? String((e as any).message) : 'Login failed'
       setAuthError(msg)
+    } finally {
+      setIsAuthLoading(false)
     }
   }
 
@@ -870,7 +874,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="formGrid">
+            <form className="formGrid" onSubmit={(e) => { e.preventDefault(); submitAuth(); }}>
               {authMode === 'signup' ? (
                 <label className="field">
                   <span className="fieldLabel">Display name</span>
@@ -914,10 +918,10 @@ export default function App() {
 
               {authError ? <div className="formError">{authError}</div> : null}
 
-              <button className="primaryButton" type="button" onClick={submitAuth}>
-                {authMode === 'login' ? 'Log in' : 'Create account'}
+              <button className="primaryButton" type="submit" disabled={isAuthLoading}>
+                {isAuthLoading ? 'Please wait...' : (authMode === 'login' ? 'Log in' : 'Create account')}
               </button>
-            </div>
+            </form>
           </div>
         </div>
       ) : null}
