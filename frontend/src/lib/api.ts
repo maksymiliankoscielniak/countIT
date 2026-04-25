@@ -5,6 +5,31 @@ export type ApiError = {
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '')
 
+function toMessage(payload: unknown): string {
+  if (typeof payload === 'string') return payload
+  if (!payload || typeof payload !== 'object') return 'Request failed'
+
+  const anyPayload = payload as any
+  const detail = anyPayload?.detail
+  if (typeof detail === 'string') return detail
+
+  // FastAPI validation errors: { detail: [ { msg, loc, ...}, ... ] }
+  if (Array.isArray(detail) && detail.length) {
+    const first = detail[0]
+    if (first && typeof first === 'object' && 'msg' in first) return String((first as any).msg)
+    return JSON.stringify(detail)
+  }
+
+  const msg = anyPayload?.message
+  if (typeof msg === 'string') return msg
+
+  try {
+    return JSON.stringify(payload)
+  } catch {
+    return 'Request failed'
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   opts?: {
@@ -30,11 +55,7 @@ export async function apiFetch<T>(
   const payload = isJson ? await res.json() : await res.text()
 
   if (!res.ok) {
-    const msg =
-      typeof payload === 'string'
-        ? payload
-        : (payload?.detail as string | undefined) || (payload?.message as string | undefined) || 'Request failed'
-    const err: ApiError = { status: res.status, message: msg }
+    const err: ApiError = { status: res.status, message: toMessage(payload) }
     throw err
   }
 
