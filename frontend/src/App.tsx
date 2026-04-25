@@ -919,7 +919,6 @@ export default function App() {
           </div>
         </div>
       ) : null}
-      ) : null}
 
       {!warningAccepted ? (
         <div className="modalOverlay" style={{ zIndex: 9999 }}>
