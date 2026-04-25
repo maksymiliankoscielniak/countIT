@@ -377,7 +377,7 @@ export default function App() {
 
     try {
       if (authMode === 'signup') {
-        const me = await apiFetch<ApiUser>('/auth/register', {
+        const me = await apiFetch<ApiUser>('/auth/signup', {
           method: 'POST',
           body: { email, password, displayName, rememberMe: authRememberMe },
         })

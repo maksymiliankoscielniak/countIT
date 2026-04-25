@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from passlib.context import CryptContext
-
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+import bcrypt
 
 def hash_password(password: str) -> str:
-  return _pwd_context.hash(password)
-
+  pwd_bytes = password.encode('utf-8')
+  salt = bcrypt.gensalt()
+  hashed = bcrypt.hashpw(pwd_bytes, salt)
+  return hashed.decode('utf-8')
 
 def verify_password(password: str, password_hash: str) -> bool:
-  return _pwd_context.verify(password, password_hash)
+  pwd_bytes = password.encode('utf-8')
+  hash_bytes = password_hash.encode('utf-8')
+  try:
+    return bcrypt.checkpw(pwd_bytes, hash_bytes)
+  except ValueError:
+    return False
 

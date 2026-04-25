@@ -66,58 +66,75 @@ def _user_out(user: User) -> UserOut:
   return UserOut(id=str(user.id), email=user.email, displayName=user.display_name)
 
 
-@router.post("/register", response_model=UserOut)
+@router.post("/signup", response_model=UserOut)
 def register(body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
-  email = body.email.strip().lower()
+  try:
+    email = body.email.strip().lower()
 
-  exists = db.scalar(select(User).where(User.email == email))
-  if exists:
-    raise HTTPException(status_code=409, detail="Account already exists")
+    exists = db.scalar(select(User).where(User.email == email))
+    if exists:
+      raise HTTPException(status_code=409, detail="Account already exists")
 
-  user = User(email=email, password_hash=hash_password(body.password), display_name=body.displayName.strip())
-  db.add(user)
-  db.commit()
-  db.refresh(user)
+    user = User(email=email, password_hash=hash_password(body.password), display_name=body.displayName.strip())
+    db.add(user)
+    db.commit()
+    db.refresh(user)
 
-  access = create_access_token(user_id=str(user.id))
-  refresh_raw = make_refresh_token()
-  refresh_hash = hash_refresh_token(refresh_raw)
-  refresh_row = RefreshToken(
-    user_id=user.id,
-    token_hash=refresh_hash,
-    expires_at=datetime.now(UTC) + timedelta(seconds=settings.refresh_token_ttl_seconds),
-    revoked_at=None,
-  )
-  db.add(refresh_row)
-  db.commit()
+    access = create_access_token(user_id=str(user.id))
+    refresh_raw = make_refresh_token()
+    refresh_hash = hash_refresh_token(refresh_raw)
+    refresh_row = RefreshToken(
+      user_id=user.id,
+      token_hash=refresh_hash,
+      expires_at=datetime.now(UTC) + timedelta(seconds=settings.refresh_token_ttl_seconds),
+      revoked_at=None,
+    )
+    db.add(refresh_row)
+    db.commit()
 
-  _set_access_cookie(response, access)
-  _set_refresh_cookie(response, refresh_raw, remember_me=body.rememberMe)
-  return _user_out(user)
+    _set_access_cookie(response, access)
+    _set_refresh_cookie(response, refresh_raw, remember_me=body.rememberMe)
+    return _user_out(user)
+  except HTTPException:
+    raise
+  except Exception as e:
+    import traceback
+    db.rollback()
+    err_str = f"Internal Error: {str(e)}"
+    raise HTTPException(status_code=500, detail=err_str)
+
 
 
 @router.post("/login", response_model=UserOut)
 def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
-  email = body.email.strip().lower()
-  user = db.scalar(select(User).where(User.email == email))
-  if not user or not verify_password(body.password, user.password_hash):
-    raise HTTPException(status_code=401, detail="Wrong email or password")
+  try:
+    email = body.email.strip().lower()
+    user = db.scalar(select(User).where(User.email == email))
+    if not user or not verify_password(body.password, user.password_hash):
+      raise HTTPException(status_code=401, detail="Wrong email or password")
 
-  access = create_access_token(user_id=str(user.id))
-  refresh_raw = make_refresh_token()
-  refresh_hash = hash_refresh_token(refresh_raw)
-  refresh_row = RefreshToken(
-    user_id=user.id,
-    token_hash=refresh_hash,
-    expires_at=datetime.now(UTC) + timedelta(seconds=settings.refresh_token_ttl_seconds),
-    revoked_at=None,
-  )
-  db.add(refresh_row)
-  db.commit()
+    access = create_access_token(user_id=str(user.id))
+    refresh_raw = make_refresh_token()
+    refresh_hash = hash_refresh_token(refresh_raw)
+    refresh_row = RefreshToken(
+      user_id=user.id,
+      token_hash=refresh_hash,
+      expires_at=datetime.now(UTC) + timedelta(seconds=settings.refresh_token_ttl_seconds),
+      revoked_at=None,
+    )
+    db.add(refresh_row)
+    db.commit()
 
-  _set_access_cookie(response, access)
-  _set_refresh_cookie(response, refresh_raw, remember_me=body.rememberMe)
-  return _user_out(user)
+    _set_access_cookie(response, access)
+    _set_refresh_cookie(response, refresh_raw, remember_me=body.rememberMe)
+    return _user_out(user)
+  except HTTPException:
+    raise
+  except Exception as e:
+    db.rollback()
+    err_str = f"Internal Error: {str(e)}"
+    raise HTTPException(status_code=500, detail=err_str)
+
 
 
 @router.post("/refresh")
