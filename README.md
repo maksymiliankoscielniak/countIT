@@ -31,7 +31,7 @@
 - **FastAPI** (Python 3.10+)
 - **SQLAlchemy** (PostgreSQL Database)
 - **Bcrypt** & **JWT** for authentication
-- Hosted on **Render**
+- Hosted on **Render** (Use `bash build.sh` as the Render Build Command to automatically install dependencies and run database migrations)
 
 ---
 
