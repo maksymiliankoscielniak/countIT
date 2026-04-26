@@ -21,8 +21,8 @@
  COPY start.sh /app/start.sh
  
  ENV PYTHONUNBUFFERED=1
+ ENV PYTHONPATH=/app
  
  EXPOSE 8000
  
  CMD ["bash", "start.sh"]
- 
