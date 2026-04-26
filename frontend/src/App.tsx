@@ -30,6 +30,7 @@ type ApiUser = {
   id: string
   email: string
   displayName: string
+  customMacros?: Record<MacroKey, number>
 }
 
 const MACRO_LABELS: Record<MacroKey, string> = {
@@ -179,6 +180,75 @@ export default function App() {
   const [calcHeight, setCalcHeight] = useState<number>(175)
   const [calcActivity, setCalcActivity] = useState<number>(1.55)
 
+  async function syncMacrosToBackend(macros: Record<MacroKey, number>) {
+    if (!currentUser) return
+    try {
+      await apiFetch('/me/macros', { method: 'PATCH', body: macros })
+    } catch (e) {
+      console.error('Failed to sync macros', e)
+    }
+  }
+
+  const initialMountRef = useRef(true)
+  useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false
+      return
+    }
+    if (currentUser) {
+      const t = setTimeout(() => {
+        syncMacrosToBackend(customMacros)
+      }, 1000)
+      return () => clearTimeout(t)
+    }
+  }, [customMacros, currentUser])
+
+  const loadedDaysRef = useRef<Set<string>>(new Set())
+  const syncDayTimersRef = useRef<Record<string, number>>({})
+
+  function triggerDaySync(dateKey: string, meals: Meal[]) {
+    if (!currentUser) return
+    const existing = syncDayTimersRef.current[dateKey]
+    if (existing) window.clearTimeout(existing)
+    syncDayTimersRef.current[dateKey] = window.setTimeout(async () => {
+      try {
+        await apiFetch(`/days/${dateKey}`, { method: 'PUT', body: { meals } })
+      } catch (e) {
+        console.error('Failed to sync day', e)
+      }
+    }, 1000)
+  }
+
+  useEffect(() => {
+    setDayData({ [selectedDayKey]: { meals: [] } })
+    loadedDaysRef.current.clear()
+  }, [currentUser?.id])
+
+  useEffect(() => {
+    if (!currentUser) return
+    if (loadedDaysRef.current.has(selectedDayKey)) return
+
+    let cancelled = false
+    loadedDaysRef.current.add(selectedDayKey)
+
+    ;(async () => {
+      try {
+        const data = await apiFetch<{ meals: Meal[] }>(`/days/${selectedDayKey}`)
+        if (!cancelled && data && data.meals) {
+          setDayData((prev) => ({
+            ...prev,
+            [selectedDayKey]: { meals: data.meals }
+          }))
+        }
+      } catch (e) {
+        console.error('Failed to load day', e)
+        loadedDaysRef.current.delete(selectedDayKey)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [selectedDayKey, currentUser])
+
   function applyCalculatedMacros() {
     let bmr = 10 * calcWeight + 6.25 * calcHeight - 5 * calcAge
     if (calcSex === 'male') bmr += 5
@@ -200,12 +270,24 @@ export default function App() {
     ;(async () => {
       try {
         const me = await apiFetch<ApiUser>('/me')
-        if (!cancelled) setCurrentUser(me)
+        if (!cancelled) {
+          setCurrentUser(me)
+          if (me.customMacros) {
+            setCustomMacros(me.customMacros)
+            localStorage.setItem('customMacros', JSON.stringify(me.customMacros))
+          }
+        }
       } catch {
         try {
           await apiFetch<{ ok: boolean }>('/auth/refresh', { method: 'POST' })
           const me = await apiFetch<ApiUser>('/me')
-          if (!cancelled) setCurrentUser(me)
+          if (!cancelled) {
+            setCurrentUser(me)
+            if (me.customMacros) {
+              setCustomMacros(me.customMacros)
+              localStorage.setItem('customMacros', JSON.stringify(me.customMacros))
+            }
+          }
         } catch {
           // not logged in
         }
@@ -239,6 +321,7 @@ export default function App() {
       ...prev,
       [selectedDayKey]: { meals: nextMeals },
     }))
+    triggerDaySync(selectedDayKey, nextMeals)
   }
 
   function addMeal() {
@@ -424,6 +507,10 @@ export default function App() {
           body: { email, password, displayName, rememberMe: authRememberMe },
         })
         setCurrentUser(me)
+        if (me.customMacros) {
+          setCustomMacros(me.customMacros)
+          localStorage.setItem('customMacros', JSON.stringify(me.customMacros))
+        }
         setIsAuthOpen(false)
         return
       }
@@ -433,6 +520,10 @@ export default function App() {
         body: { email, password, rememberMe: authRememberMe },
       })
       setCurrentUser(me)
+      if (me.customMacros) {
+        setCustomMacros(me.customMacros)
+        localStorage.setItem('customMacros', JSON.stringify(me.customMacros))
+      }
       setIsAuthOpen(false)
     } catch (e) {
       const msg = typeof e === 'object' && e && 'message' in e ? String((e as any).message) : 'Login failed'

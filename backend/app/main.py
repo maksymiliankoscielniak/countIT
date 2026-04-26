@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth, me, products
+from app.routers import auth, days, me, products
 
 
 def _split_origins(raw: str) -> list[str]:
@@ -31,4 +31,5 @@ def health():
 app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(me.router)
+app.include_router(days.router)
 

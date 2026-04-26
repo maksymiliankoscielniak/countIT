@@ -20,4 +20,5 @@ class UserOut(BaseModel):
   id: str
   email: EmailStr
   displayName: str
+  customMacros: dict | None = None
 

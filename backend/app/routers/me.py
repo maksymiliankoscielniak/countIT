@@ -36,5 +36,31 @@ def me(request: Request, db: Session = Depends(get_db)):
   if not user:
     raise HTTPException(status_code=401, detail="User not found")
 
-  return UserOut(id=str(user.id), email=user.email, displayName=user.display_name)
+  return UserOut(id=str(user.id), email=user.email, displayName=user.display_name, customMacros=user.custom_macros)
+
+
+@router.patch("/me/macros", response_model=UserOut)
+def update_macros(macros: dict, request: Request, db: Session = Depends(get_db)):
+  token = _get_access_cookie(request)
+  if not token:
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+  try:
+    payload = decode_access_token(token)
+  except JWTError:
+    raise HTTPException(status_code=401, detail="Invalid token")
+
+  user_id = payload.get("sub")
+  if not user_id:
+    raise HTTPException(status_code=401, detail="Invalid token")
+
+  user = db.get(User, user_id)
+  if not user:
+    raise HTTPException(status_code=401, detail="User not found")
+
+  user.custom_macros = macros
+  db.commit()
+  db.refresh(user)
+
+  return UserOut(id=str(user.id), email=user.email, displayName=user.display_name, customMacros=user.custom_macros)
 
