@@ -1,10 +1,22 @@
 from __future__ import annotations
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
   model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+  @field_validator("database_url")
+  @classmethod
+  def _normalize_database_url(cls, value: str) -> str:
+    # Hosted Postgres providers (Neon, Render, Heroku...) hand out "postgres://" or
+    # "postgresql://" URLs, which SQLAlchemy maps to psycopg2. We ship psycopg v3.
+    value = value.strip()
+    for prefix in ("postgres://", "postgresql://"):
+      if value.startswith(prefix):
+        return "postgresql+psycopg://" + value[len(prefix):]
+    return value
 
   # Database
   database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/countit"

@@ -33,6 +33,9 @@ type ApiUser = {
   customMacros?: Record<MacroKey, number>
 }
 
+// Bump the suffix to show the notice again to everyone (e.g. after a data reset).
+const NOTICE_STORAGE_KEY = 'noticeAccepted_2026_10'
+
 const MACRO_LABELS: Record<MacroKey, string> = {
   calories: 'Calories',
   protein: 'Protein',
@@ -157,7 +160,7 @@ export default function App() {
 
   const [warningAccepted, setWarningAccepted] = useState(() => {
     try {
-      return localStorage.getItem('warningAccepted') === 'true'
+      return localStorage.getItem(NOTICE_STORAGE_KEY) === 'true'
     } catch {
       return false
     }
@@ -1026,11 +1029,11 @@ export default function App() {
             <div className="modalBody" style={{ padding: '20px', lineHeight: '1.6' }}>
               <p style={{ marginBottom: '15px' }}>Welcome to countIT!</p>
               <p style={{ marginBottom: '15px' }}>
-                Please note that due to the use of a free database tier, this application and all user data will be <strong>permanently deleted on May 25th, 2026</strong>.
+                The previous free database expired in October 2026, so <strong>all accounts and tracked meals created before then were permanently deleted</strong>. Please create a new account to continue.
               </p>
-              <p style={{ marginBottom: '25px' }}>After that date, all accounts and tracked meals will be gone.</p>
+              <p style={{ marginBottom: '25px' }}>The app now runs on a database without an expiry date, but countIT is a hobby project, so data may still be reset in the future.</p>
               <button className="primaryButton" type="button" onClick={() => {
-                localStorage.setItem('warningAccepted', 'true')
+                localStorage.setItem(NOTICE_STORAGE_KEY, 'true')
                 setWarningAccepted(true)
               }}>
                 I Understand
